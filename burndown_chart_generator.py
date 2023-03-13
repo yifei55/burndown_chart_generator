@@ -37,11 +37,13 @@ import pandas as pd
 
 # read the excel from local and convert it to DataFrame
 excel_df = pd.read_excel(
-    r"C:\Python_script-20230222T094046Z-001\Python_script\proj5189-tracker30629-20230302-1613.xlsx")
-planned_for_group = 'Lidar OS'
+    r"C:\Users\ywang\Documents\proj5189-tracker30629-20230313-2104.xlsx")
+planned_for_group = 'Product'
 sprint_nr = 'Sprint 3'
 # use regular expression to filter out the keywords as Lidar OS and Sprint 3, this can be adjusted based on needs
-regex_pattern = r"(?=.*\bLidar\sOS\b)(?=.*\bSprint\s3\b).+"
+regex_pattern = re.compile(fr'(?=.*\b{planned_for_group}\b)(?=.*\b{sprint_nr}\b).+')
+# regex_pattern = r"(?=.*\bProduct\b)(?=.*\bSprint\s3\b).+"
+# regex_pattern = r"(?=.*\bLidar\sOS\b)(?=.*\bSprint\s3\b).+"
 #################################################################################
 
 def convertDate2CWs(date):
@@ -142,14 +144,16 @@ ax.plot(df2['CWs'], df2['ideal remaining tasks'], label='Ideal')
 current_idx_cw = df2.index[df2['CWs'] == week_num][0] # draw actual remaining task till current CW
 ax.plot(df2['CWs'][0:current_idx_cw+1], df2['actual remaining tasks'][0:current_idx_cw+1], label='Actual')
 bars = ax.bar(df2['CWs'], df2['done as plan'], label='Completed Tasks')
-ax.bar_label(bars)
-plt.legend(loc='center left')
+ax.bar_label(bars,fontsize=7)
+plt.legend(loc='center left',fontsize=7)
+plt.xticks(df2['CWs'],fontsize=7)
+plt.yticks(fontsize=7)
 
 for i,j in zip(df2['CWs'],df2['ideal remaining tasks']):
-    ax.annotate(str(j),xy=(i,j-3.5))
+    ax.annotate(str(j),xy=(i,j-2),fontsize=7)
 
 for i,j in zip(df2['CWs'][0:current_idx_cw+1],df2['actual remaining tasks'][0:current_idx_cw+1]):
-    ax.annotate(str(j),xy=(i,j+3.5))
+    ax.annotate(str(j),xy=(i,j+2),fontsize=7)
 
 title = "Burndown Chart"+' '+planned_for_group+' '+sprint_nr
 plt.xlabel('Calendar Week')
