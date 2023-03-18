@@ -38,12 +38,15 @@ import pandas as pd
 # read the excel from local and convert it to DataFrame
 excel_df = pd.read_excel(
     r"C:\Users\ywang\Documents\proj5189-tracker30629-20230313-2104.xlsx")
-planned_for_group = 'Product'
+planned_for_group = 'Physical Samples'
 sprint_nr = 'Sprint 3'
 # use regular expression to filter out the keywords as Lidar OS and Sprint 3, this can be adjusted based on needs
 regex_pattern = re.compile(fr'(?=.*\b{planned_for_group}\b)(?=.*\b{sprint_nr}\b).+')
-# regex_pattern = r"(?=.*\bProduct\b)(?=.*\bSprint\s3\b).+"
-# regex_pattern = r"(?=.*\bLidar\sOS\b)(?=.*\bSprint\s3\b).+"
+
+# you can also customize the starting and ending calendar weeks as you want
+start_CW = 6
+end_CW = 12
+
 #################################################################################
 
 def convertDate2CWs(date):
@@ -75,10 +78,8 @@ for k in np.arange(0, excel_df.shape[0]):
         excel_df = excel_df.drop(k)
         idx_list.append(k)
 
-# insert two new columns which need for further processing
-for k in excel_df.index:
-    excel_df.loc[k, 'due date CWs'] = convertDate2CWs(excel_df.loc[k, 'Due Date'])
-    excel_df.loc[k, 'Last Status Change CWs'] = convertDate2CWs(excel_df.loc[k, 'Last Status Change'])
+excel_df['due date CWs'] = excel_df['Due Date'].apply(convertDate2CWs)
+excel_df['Last Status Change CWs'] = excel_df['Last Status Change'].apply(convertDate2CWs)
 
 id_list = []
 CW_list = []
@@ -95,7 +96,8 @@ for k in excel_df.index:
     else:
         excel_df = excel_df.drop(k)
 
-CW_id_list = zip(id_list, CW_list)
+CW_id_list = [(id, cw) for id, cw in zip(id_list, CW_list)]
+
 # Create a list dynamically and store CWs matching with IDs
 tasks_per_CWs_dict = collections.defaultdict(list)
 
@@ -139,20 +141,26 @@ for i in np.arange(0, len(df)):
 
 df2 = df.reset_index(drop=True) # Update index after sorting data-frame
 
+start_idx = df2[df2['CWs'] == start_CW].index[0]
+end_idx = df2[df2['CWs'] == end_CW].index[0]
+
 fig, ax = plt.subplots()  # Create a figure containing a single axes
-ax.plot(df2['CWs'], df2['ideal remaining tasks'], label='Ideal')
-current_idx_cw = df2.index[df2['CWs'] == week_num][0] # draw actual remaining task till current CW
-ax.plot(df2['CWs'][0:current_idx_cw+1], df2['actual remaining tasks'][0:current_idx_cw+1], label='Actual')
+ax.plot(df2['CWs'][start_idx:end_idx], df2['ideal remaining tasks'][start_idx:end_idx], label='Ideal')
+# current_idx_cw = df2.index[df2['CWs'] == week_num][0] # draw actual remaining task till current CW
+# ax.plot(df2['CWs'][start_idx:current_idx_cw+1], df2['actual remaining tasks'][0:current_idx_cw+1], label='Actual')
+ax.plot(df2['CWs'][start_idx:end_idx], df2['actual remaining tasks'][start_idx:end_idx], label='Actual')
 bars = ax.bar(df2['CWs'], df2['done as plan'], label='Completed Tasks')
 ax.bar_label(bars,fontsize=7)
 plt.legend(loc='center left',fontsize=7)
 plt.xticks(df2['CWs'],fontsize=7)
 plt.yticks(fontsize=7)
 
-for i,j in zip(df2['CWs'],df2['ideal remaining tasks']):
+for i,j in zip(df2['CWs'][start_idx:end_idx],df2['ideal remaining tasks'][start_idx:end_idx]):
     ax.annotate(str(j),xy=(i,j-2),fontsize=7)
 
-for i,j in zip(df2['CWs'][0:current_idx_cw+1],df2['actual remaining tasks'][0:current_idx_cw+1]):
+# for i,j in zip(df2['CWs'][0:current_idx_cw+1],df2['actual remaining tasks'][0:current_idx_cw+1]):
+#     ax.annotate(str(j),xy=(i,j+2),fontsize=7)
+for i,j in zip(df2['CWs'][start_idx:end_idx],df2['actual remaining tasks'][start_idx:end_idx]):
     ax.annotate(str(j),xy=(i,j+2),fontsize=7)
 
 title = "Burndown Chart"+' '+planned_for_group+' '+sprint_nr
