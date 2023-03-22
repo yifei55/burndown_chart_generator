@@ -40,11 +40,13 @@ from PyQt5.QtGui import QFont
 #################################################################################
 class MyWindow(QWidget):
     def __init__(self):
+
         super().__init__()
 
         self.initUI()
 
     def initUI(self):
+
         vbox = QVBoxLayout()
 
         self.label = QLabel('Enter the full sprint structure')
@@ -73,12 +75,14 @@ class MyWindow(QWidget):
         self.show()
 
     def return_text(self):
+
         text: str = self.textbox.text()
         print('Entered text:', text)
         global enter_text
         enter_text = text
         self.close()
 def get_date(text):
+
     import tkinter as tk
     from tkinter import ttk
     from tkcalendar import Calendar, DateEntry
@@ -118,6 +122,7 @@ def generate_data_list(start_date,end_date):
     return pd.date_range(start_date,end_date, freq='d')
 
 def plot(df):
+
     fig, ax = plt.subplots()  # Create a figure containing a single axes
     now_date = datetime.date.today()
     datetime_obj = datetime.datetime.combine(now_date, datetime.datetime.min.time())
@@ -275,15 +280,14 @@ def sheet_data_processing(excel_df):
 
     return df3
 def main():
+
     global start_date, end_date
     start_date = get_date('Select Start Date')
     end_date = get_date('Select End Date')
 
-    read_excel_sheet()
+    excel_df= read_excel_sheet()
 
     enter_sprint_struct()
-
-    excel_df = read_excel_sheet()
 
     df3 = sheet_data_processing(excel_df)
 
