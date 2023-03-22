@@ -9,6 +9,9 @@ from tkinter import filedialog
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QLineEdit
 from PyQt5.QtGui import QFont
+import tkinter as tk
+from tkinter import ttk
+from tkcalendar import Calendar, DateEntry
 # ==========================================
 #  Title:  Burndown Chart Generator
 #  Author: Yifei Wang
@@ -82,10 +85,6 @@ class MyWindow(QWidget):
         enter_text = text
         self.close()
 def get_date(text):
-
-    import tkinter as tk
-    from tkinter import ttk
-    from tkcalendar import Calendar, DateEntry
 
     def cal_done():
         top.withdraw()
