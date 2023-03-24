@@ -10,7 +10,7 @@ import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QLineEdit
 from PyQt5.QtGui import QFont
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from tkcalendar import Calendar, DateEntry
 # ==========================================
 #  Title:  Burndown Chart Generator
@@ -121,26 +121,54 @@ def generate_data_list(start_date,end_date):
     return pd.date_range(start_date,end_date, freq='d')
 
 def plot(df):
-
+    actual_plot_flag = True
+    ideal_plot_flag = True
+    now_date_compare_date_range = 0 # -1: eariler than the range; 0:in the range ; 1: later than the range
     fig, ax = plt.subplots()  # Create a figure containing a single axes
     now_date = datetime.date.today()
     datetime_obj = datetime.datetime.combine(now_date, datetime.datetime.min.time())
     datetime64_obj = np.datetime64(datetime_obj)
-    now_date_idx = date_range.get_loc(datetime64_obj) + 1
-    df_idx_list.insert(0, 0)
     if datetime64_obj in date_range:
-        ax.plot(date_range[:now_date_idx], df['actual remaining tasks'][:now_date_idx], label='Actual')
+        now_date_idx = date_range.get_loc(datetime64_obj)+1
     else:
-        ax.plot(date_range, df['actual remaining tasks'], label='Actual')
-    ax.plot(date_range[df_idx_list], df['ideal remaining tasks'][df_idx_list], label='Ideal')
+        now_date_idx = len(date_range)
+    df_idx_list.insert(0, 0)
+
+    if df['actual remaining tasks'].isna().any():
+        print("The 'actual remaining tasks' column contains NaN values. Skipping plot.")
+        actual_plot_flag = False
+
+    if df['ideal remaining tasks'].isna().any():
+        print("The 'ideal remaining tasks' column contains NaN values. Skipping plot.")
+        ideal_plot_flag = False
+    else:
+        ax.plot(date_range[df_idx_list], df['ideal remaining tasks'][df_idx_list], label='Ideal')
+
+    if datetime64_obj not in date_range:
+         if datetime64_obj < date_range[0]:
+            now_date_compare_date_range = -1
+         elif datetime64_obj > date_range[0]:
+            now_date_compare_date_range = 1
+    else:
+        now_date_compare_date_range = 0
+
+
+    if actual_plot_flag == True:
+        if datetime64_obj in date_range:
+            ax.plot(date_range[:now_date_idx], df['actual remaining tasks'][:now_date_idx], label='Actual')
+        elif now_date_compare_date_range == 1:
+            ax.plot(date_range, df['actual remaining tasks'], label='Actual')
+        # ax.plot(date_range[df_idx_list], df['ideal remaining tasks'][df_idx_list], label='Ideal')
 
     # add annotations to the actual curve
-    for i, val in enumerate(df['actual remaining tasks'][:now_date_idx]):
-        ax.annotate(str(val), xy=(date_range[i], val), ha='center', va='bottom', fontsize=7)
+    if actual_plot_flag == True and now_date_compare_date_range != -1:
+        for i, val in enumerate(df['actual remaining tasks'][:now_date_idx]):
+            ax.annotate(str(val), xy=(date_range[i], val), ha='center', va='bottom', fontsize=7)
 
     # add annotations to the ideal curve
-    for i, val in enumerate(df['ideal remaining tasks'][df_idx_list]):
-        ax.annotate(str(val), xy=(date_range[df_idx_list][i], val), ha='center', va='bottom', fontsize=7)
+    if ideal_plot_flag == True:
+        for i, val in enumerate(df['ideal remaining tasks'][df_idx_list]):
+            ax.annotate(str(val), xy=(date_range[df_idx_list][i], val), ha='center', va='bottom', fontsize=7)
 
     plt.xticks(rotation=90)
 
@@ -172,6 +200,15 @@ def enter_sprint_struct():
     window = MyWindow()
     window.show()
     app.exec_()
+
+def valid_input(input,excel_df):
+    if enter_text not in list(excel_df['Planned For']):
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showwarning("Warning", "Can not find your input in column 'Planned For'")
+        root.destroy()
+        sys.exit()
+
 
 def sheet_data_processing(excel_df):
     regex_pattern = re.compile(enter_text)
@@ -252,7 +289,13 @@ def sheet_data_processing(excel_df):
         df2.loc[df2.index[i], 'ideal remaining tasks'] = sum(df2['planned'].astype(int)) - sum(
             df2['planned'][0:i + 1].astype(int))
 
-    df2['due date'] = df2['due date'].astype('datetime64')
+    # df2['due date'] = df2['due date'].astype('datetime64')
+    # Attempt to convert 'due date' column to datetime64, handle exceptions
+    try:
+        df2['due date'] = pd.to_datetime(df2['due date'], errors='raise')
+        print("Successfully converted 'due date' column to datetime64")
+    except Exception as e:
+        print(f"Error occurred while converting 'due date' column: {e}")
 
     global df_idx_list
     df_idx_list = []
@@ -287,6 +330,8 @@ def main():
     excel_df= read_excel_sheet()
 
     enter_sprint_struct()
+
+    valid_input(enter_text,excel_df)
 
     df3 = sheet_data_processing(excel_df)
 
