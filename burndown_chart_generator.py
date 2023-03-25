@@ -12,6 +12,23 @@ from PyQt5.QtGui import QFont
 import tkinter as tk
 from tkinter import ttk, messagebox
 from tkcalendar import Calendar, DateEntry
+import logging
+import warnings
+from openpyxl import Workbook
+
+warnings.filterwarnings("ignore", message="Workbook contains no default style, apply openpyxl's default")
+
+
+logging.basicConfig(filename='script.log', level=logging.DEBUG)
+logging.debug('This is a debug message')
+logging.info('This is an info message')
+logging.warning('This is a warning message')
+logging.error('This is an error message')
+logging.critical('This is a critical message')
+
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+os.chdir(script_dir)
 # ==========================================
 #  Title:  Burndown Chart Generator
 #  Author: Yifei Wang
@@ -293,7 +310,7 @@ def sheet_data_processing(excel_df):
     # Attempt to convert 'due date' column to datetime64, handle exceptions
     try:
         df2['due date'] = pd.to_datetime(df2['due date'], errors='raise')
-        print("Successfully converted 'due date' column to datetime64")
+        # print("Successfully converted 'due date' column to datetime64")
     except Exception as e:
         print(f"Error occurred while converting 'due date' column: {e}")
 
