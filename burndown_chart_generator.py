@@ -1,20 +1,17 @@
 import collections
 import datetime
-import re
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import os
 from tkinter import filedialog
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QLineEdit
-from PyQt5.QtGui import QFont
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import ttk, messagebox
-from tkcalendar import Calendar, DateEntry
+from tkcalendar import Calendar
 import logging
 import warnings
-from openpyxl import Workbook
 
 warnings.filterwarnings("ignore", message="Workbook contains no default style, apply openpyxl's default")
 
@@ -25,7 +22,6 @@ logging.info('This is an info message')
 logging.warning('This is a warning message')
 logging.error('This is an error message')
 logging.critical('This is a critical message')
-
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
@@ -58,65 +54,37 @@ os.chdir(script_dir)
 # The script generate a burndown chart as a pdf format, you can save the figure #
 # to your local drive by clicking the button SAVE                               #
 #################################################################################
-class MyWindow(QWidget):
-    def __init__(self):
 
-        super().__init__()
-
-        self.initUI()
-
-    def initUI(self):
-
-        vbox = QVBoxLayout()
-
-        self.label = QLabel('Enter the full sprint structure')
-        font = QFont('Arial', 15, QFont.Bold)
-        self.label.setFont(font)
-        vbox.addWidget(self.label)
-
-        self.info_label = QLabel('e.g.PI 1 > Lidar OS > Integration Team > Sprint 3')
-        self.info_label.setFont(font)
-        vbox.addWidget(self.info_label)
-
-        vbox.setSpacing(10)
-
-        self.textbox = QLineEdit(self)
-        self.textbox.setFixedHeight(50)
-        vbox.addWidget(self.textbox)
-        self.textbox.setFont(QFont('Arial', 15))
-
-        self.button = QPushButton('Submit')
-        self.button.setFont(font)
-        self.button.clicked.connect(self.return_text)
-        vbox.addWidget(self.button)
-
-        self.setLayout(vbox)
-        self.resize(500, 200)
-        self.show()
-
-    def return_text(self):
-
-        text: str = self.textbox.text()
-        print('Entered text:', text)
-        global enter_text
-        enter_text = text
-        self.close()
 def get_date(text):
+    def center_window(window, width, height):
+        screen_width = window.winfo_screenwidth()
+        screen_height = window.winfo_screenheight()
+
+        x = (screen_width // 2) - (width // 2)
+        y = (screen_height // 2) - (height // 2)
+
+        window.geometry(f'{width}x{height}+{x}+{y}')
 
     def cal_done():
         top.withdraw()
         root.quit()
 
     root = tk.Tk()
-    root.withdraw() # keep the root window from appearing
+    root.withdraw()  # keep the root window from appearing
 
     top = tk.Toplevel(root)
 
+    # Set the desired width and height for the Toplevel window
+    width = 1200
+    height = 900
+    center_window(top, width, height)
+
     cal = Calendar(top,
-                   font="Arial 14", selectmode='day',
+                   font="Arial 16", selectmode='day',
                    cursor="hand1")
     cal.pack(fill="both", expand=True)
-    ttk.Button(top, text=text, command=cal_done).pack()
+    tk.Button(top, text=text, command=cal_done, font=("Arial", 16), background='green', foreground='black',
+              activebackground='green', activeforeground='white', bd=2, relief='raised').pack()
 
     selected_date = None
     root.mainloop()
@@ -137,111 +105,86 @@ def generate_data_list(start_date,end_date):
 
     return pd.date_range(start_date,end_date, freq='d')
 
-def plot(df):
-    actual_plot_flag = True
-    ideal_plot_flag = True
-    now_date_compare_date_range = 0 # -1: eariler than the range; 0:in the range ; 1: later than the range
-    fig, ax = plt.subplots()  # Create a figure containing a single axes
-    now_date = datetime.date.today()
-    datetime_obj = datetime.datetime.combine(now_date, datetime.datetime.min.time())
-    datetime64_obj = np.datetime64(datetime_obj)
-    if datetime64_obj in date_range:
-        now_date_idx = date_range.get_loc(datetime64_obj)+1
-    else:
-        now_date_idx = len(date_range)
-    df_idx_list.insert(0, 0)
-
-    if df['actual remaining tasks'].isna().any():
-        print("The 'actual remaining tasks' column contains NaN values. Skipping plot.")
-        actual_plot_flag = False
-
-    if df['ideal remaining tasks'].isna().any():
-        print("The 'ideal remaining tasks' column contains NaN values. Skipping plot.")
-        ideal_plot_flag = False
-    else:
-        ax.plot(date_range[df_idx_list], df['ideal remaining tasks'][df_idx_list], label='Ideal')
-
-    if datetime64_obj not in date_range:
-         if datetime64_obj < date_range[0]:
-            now_date_compare_date_range = -1
-         elif datetime64_obj > date_range[0]:
-            now_date_compare_date_range = 1
-    else:
-        now_date_compare_date_range = 0
-
-
-    if actual_plot_flag == True:
-        if datetime64_obj in date_range:
-            ax.plot(date_range[:now_date_idx], df['actual remaining tasks'][:now_date_idx], label='Actual')
-        elif now_date_compare_date_range == 1:
-            ax.plot(date_range, df['actual remaining tasks'], label='Actual')
-        # ax.plot(date_range[df_idx_list], df['ideal remaining tasks'][df_idx_list], label='Ideal')
-
-    # add annotations to the actual curve
-    if actual_plot_flag == True and now_date_compare_date_range != -1:
-        for i, val in enumerate(df['actual remaining tasks'][:now_date_idx]):
-            ax.annotate(str(val), xy=(date_range[i], val), ha='center', va='bottom', fontsize=7)
-
-    # add annotations to the ideal curve
-    if ideal_plot_flag == True:
-        for i, val in enumerate(df['ideal remaining tasks'][df_idx_list]):
-            ax.annotate(str(val), xy=(date_range[df_idx_list][i], val), ha='center', va='bottom', fontsize=7)
-
-    plt.xticks(rotation=90)
-
-    bars = ax.bar(date_range, df['done_at_this_day'], label='Completed Tasks')
-    ax.bar_label(bars, fontsize=7)
-    plt.legend(loc='center left', fontsize=7)
-    plt.xticks(date_range, fontsize=7)
-    plt.yticks(fontsize=7)
-    title = "Burndown Chart" + ' ' + enter_text
-    filename = title.replace('>', '-').replace(' ', '_') + '.pdf'
-    plt.xlabel('Days')
-    plt.ylabel('Remaining Tasks')
-    plt.title(title)
-    plt.grid()
-    plt.savefig(filename, format="pdf", bbox_inches="tight")
-    plt.show()
-    print('Success!')
-
 def read_excel_sheet():
 
     file_path = filedialog.askopenfilename(initialdir=os.getcwd(), title="Select the path of exported Excel from TeamForge",
                                            filetypes=[("Excel files", "*.xlsx")])
+    data = pd.read_excel(file_path)
 
-    return pd.read_excel(file_path)
+    # Drop rows that don't start with 'PI' and don't contain 'Sprint'
+    excel_df = data[data['Planned For'].str.startswith('PI') & data['Planned For'].str.contains('Sprint')]
 
+    return excel_df
 
-def enter_sprint_struct():
-    app = QApplication(sys.argv)
-    window = MyWindow()
-    window.show()
-    app.exec_()
-
-def valid_input(input,excel_df):
-    if enter_text not in list(excel_df['Planned For']):
-        root = tk.Tk()
-        root.withdraw()
+def filter_data_by_regex(data, pi_val, team_org_val, sprint_val):
+    regex_pattern = f'.*{pi_val}.*{team_org_val}.*Sprint {sprint_val}.*'
+    filtered_data = data[data['Planned For'].str.match(regex_pattern)]
+    if filtered_data.empty == True:
         messagebox.showwarning("Warning", "Can not find your input in column 'Planned For'")
-        root.destroy()
         sys.exit()
+    return filtered_data
 
+# Create a simple GUI using Tkinter to get user input
+def submit():
+    global res1, res2, pi_val, team_org_val, sprint_val, priority_val
+    pi_val = pi_input.get()
+    team_org_val = team_org_input.get()
+    sprint_val = sprint_input.get()
+    priority_val = priority_input.get()
+    res1 = filter_data_by_regex(excel_df,pi_val,team_org_val,sprint_val)
+    res2 = res1[res1['Priority'] == int(priority_val)]
+    submit_flag.set('1')
+    root.quit()
+
+def create_input_gui():
+    global pi_input, team_org_input, sprint_input, priority_input, root, submit_flag
+    root = tk.Tk()
+    root.title("User Inputs for generating Burndown-Chart:")
+
+    # Set the window size
+    window_width = 600
+    window_height = 150
+
+    # Calculate the center position
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+    x_position = int((screen_width / 2) - (window_width / 2))
+    y_position = int((screen_height / 2) - (window_height / 2))
+
+    # Set the window geometry
+    root.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
+
+    # Set font size for better readability
+    font = tkfont.Font(size=17)
+
+    submit_flag = tk.StringVar()
+    submit_flag.set('0')
+
+    tk.Label(root, text="PI").grid(row=0, column=0)
+    pi_input = tk.Entry(root, font=font, width=50, justify='center')
+    pi_input.grid(row=0, column=1)
+
+    tk.Label(root, text="Team Organization").grid(row=1, column=0)
+    team_org_input = tk.Entry(root, font=font, width=50, justify='center')
+    team_org_input.grid(row=1, column=1)
+
+    tk.Label(root, text="Sprint").grid(row=2, column=0)
+    sprint_input = tk.Entry(root, font=font, width=50, justify='center')
+    sprint_input.grid(row=2, column=1)
+
+    tk.Label(root, text="Priority").grid(row=3, column=0)
+    priority_input = tk.Entry(root, font=font, width=50, justify='center')
+    priority_input.grid(row=3, column=1)
+    root.grid_rowconfigure(4, minsize=20) # Add an empty row with a height of 20 pixels
+    button_width = 10  # Set the button width
+    tk.Button(root, text="Submit", command=lambda: submit(), font=font, bg='green', width=button_width).grid(row=5,
+                                                                                                             column=0,
+                                                                                                             columnspan=2)
+    root.grid_columnconfigure(0, weight=1)  # Add padding to the left of the button
+    root.grid_columnconfigure(1, weight=1)  # Add padding to the right of the button
+    root.mainloop()
 
 def sheet_data_processing(excel_df):
-    regex_pattern = re.compile(enter_text)
-
-    idx_list = []
-    # items used for generating burndown chart from the exported excel sheet from TeamForge
-    cols = ['Due Date', 'Last Status Change', 'Status', 'Planned For']
-
-    for k in np.arange(0, excel_df.shape[0]):
-        if isinstance(excel_df.loc[k, 'Planned For'], str):  # drop all empty cells
-            if not re.search(regex_pattern, excel_df.loc[k, 'Planned For']):  # drop all items not match regex_pattern
-                excel_df = excel_df.drop(k)
-                idx_list.append(k)
-        else:
-            excel_df = excel_df.drop(k)
-            idx_list.append(k)
 
     id_list = []
     due_date_list = []
@@ -306,7 +249,6 @@ def sheet_data_processing(excel_df):
         df2.loc[df2.index[i], 'ideal remaining tasks'] = sum(df2['planned'].astype(int)) - sum(
             df2['planned'][0:i + 1].astype(int))
 
-    # df2['due date'] = df2['due date'].astype('datetime64')
     # Attempt to convert 'due date' column to datetime64, handle exceptions
     try:
         df2['due date'] = pd.to_datetime(df2['due date'], errors='raise')
@@ -338,22 +280,89 @@ def sheet_data_processing(excel_df):
     df3.loc[0, 'ideal remaining tasks'] = sum(df3['planned'].astype(int))
 
     return df3
+
+def plot(df):
+    actual_plot_flag = True
+    ideal_plot_flag = True
+    now_date_compare_date_range = 0 # -1: eariler than the range; 0:in the range ; 1: later than the range
+    fig, ax = plt.subplots()  # Create a figure containing a single axes
+    now_date = datetime.date.today()
+    datetime_obj = datetime.datetime.combine(now_date, datetime.datetime.min.time())
+    datetime64_obj = np.datetime64(datetime_obj)
+    if datetime64_obj in date_range:
+        now_date_idx = date_range.get_loc(datetime64_obj)+1
+    else:
+        now_date_idx = len(date_range)
+    df_idx_list.insert(0, 0)
+
+    if df['actual remaining tasks'].isna().any():
+        print("The 'actual remaining tasks' column contains NaN values. Skipping plot.")
+        actual_plot_flag = False
+
+    if df['ideal remaining tasks'].isna().any():
+        print("The 'ideal remaining tasks' column contains NaN values. Skipping plot.")
+        ideal_plot_flag = False
+    else:
+        ax.plot(date_range[df_idx_list], df['ideal remaining tasks'][df_idx_list], label='Ideal')
+
+    if datetime64_obj not in date_range:
+         if datetime64_obj < date_range[0]:
+            now_date_compare_date_range = -1
+         elif datetime64_obj > date_range[0]:
+            now_date_compare_date_range = 1
+    else:
+        now_date_compare_date_range = 0
+
+    if actual_plot_flag == True:
+        if datetime64_obj in date_range:
+            ax.plot(date_range[:now_date_idx], df['actual remaining tasks'][:now_date_idx], label='Actual')
+        elif now_date_compare_date_range == 1:
+            ax.plot(date_range, df['actual remaining tasks'], label='Actual')
+
+    # add annotations to the actual curve
+    if actual_plot_flag == True and now_date_compare_date_range != -1:
+        for i, val in enumerate(df['actual remaining tasks'][:now_date_idx]):
+            ax.annotate(str(val), xy=(date_range[i], val), ha='center', va='bottom', fontsize=7)
+
+    # add annotations to the ideal curve
+    if ideal_plot_flag == True:
+        for i, val in enumerate(df['ideal remaining tasks'][df_idx_list]):
+            ax.annotate(str(val), xy=(date_range[df_idx_list][i], val), ha='center', va='bottom', fontsize=7)
+
+    plt.xticks(rotation=90)
+
+    bars = ax.bar(date_range, df['done_at_this_day'], label='Completed Tasks')
+    ax.bar_label(bars, fontsize=7)
+    plt.legend(loc='center left', fontsize=7)
+    plt.xticks(date_range, fontsize=7)
+    plt.yticks(fontsize=7)
+    if plot_prio_chart == False:
+        title = "Burndown Chart" + ' ' + 'PI ' + pi_input.get() + ' ' + team_org_input.get() + ' Sprint ' +sprint_input.get()
+    else:
+        title = "Burndown Chart" + ' ' + 'PI ' + pi_input.get() + ' ' + team_org_input.get() + ' Sprint ' +sprint_input.get() + ' Prio: ' + priority_val
+    filename = title.replace('>', '-').replace(' ', '_') + '.pdf'
+    plt.xlabel('Days')
+    plt.ylabel('Remaining Tasks')
+    plt.title(title)
+    plt.grid()
+    plt.savefig(filename, format="pdf", bbox_inches="tight")
+    plt.show()
+
 def main():
 
-    global start_date, end_date
+    global start_date, end_date, plot_prio_chart
+    plot_prio_chart = False
     start_date = get_date('Select Start Date')
     end_date = get_date('Select End Date')
-
+    global excel_df
     excel_df= read_excel_sheet()
-
-    enter_sprint_struct()
-
-    valid_input(enter_text,excel_df)
-
-    df3 = sheet_data_processing(excel_df)
-
-    plot(df3)
-
+    create_input_gui()
+    submit()
+    df1 = sheet_data_processing(res1)
+    plot(df1)
+    plot_prio_chart = True
+    df2 = sheet_data_processing(res2)
+    plot(df2)
 
 if __name__ == '__main__':
     main()
