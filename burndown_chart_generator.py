@@ -69,6 +69,9 @@ def get_date(text):
         top.withdraw()
         root.quit()
 
+    def show_help():
+        messagebox.showinfo('Help', 'Contact Name: Yifei Wang\nEmail: yifei.wang@valeo.com')
+
     root = tk.Tk()
     root.withdraw()  # keep the root window from appearing
 
@@ -83,8 +86,12 @@ def get_date(text):
                    font="Arial 16", selectmode='day',
                    cursor="hand1")
     cal.pack(fill="both", expand=True)
-    tk.Button(top, text=text, command=cal_done, font=("Arial", 16), background='green', foreground='black',
-              activebackground='green', activeforeground='white', bd=2, relief='raised').pack()
+    tk.Button(top, text=text, command=cal_done, font=("Arial", 16), background='light green', foreground='black',
+              activebackground='green', activeforeground='white', bd=2, relief='raised').pack(pady=(45, 0))
+    # Add a Help button
+    help_button = tk.Button(top, text="Help", command=show_help, font=("Arial", 14),background='cyan', foreground='black',
+              activebackground='green', activeforeground='white',)
+    help_button.pack(side=tk.BOTTOM, anchor=tk.SE, padx=(0, 20), pady=(0, 20))
 
     selected_date = None
     root.mainloop()
