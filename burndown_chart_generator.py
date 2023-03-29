@@ -133,13 +133,17 @@ def filter_data_by_regex(data, pi_val, team_org_val, sprint_val):
 
 # Create a simple GUI using Tkinter to get user input
 def submit():
-    global res1, res2, pi_val, team_org_val, sprint_val, priority_val
+    global res1, res2, pi_val, team_org_val, sprint_val, priority_val, skip_prio_plot
+    skip_prio_plot = False
     pi_val = pi_input.get()
     team_org_val = team_org_input.get()
     sprint_val = sprint_input.get()
     priority_val = priority_input.get()
     res1 = filter_data_by_regex(excel_df,pi_val,team_org_val,sprint_val)
-    res2 = res1[res1['Priority'] == int(priority_val)]
+    if priority_val == '':
+        skip_prio_plot == True
+    else:
+        res2 = res1[res1['Priority'] == int(priority_val)]
     submit_flag.set('1')
     root.quit()
 
@@ -179,7 +183,7 @@ def create_input_gui():
     sprint_input = tk.Entry(root, font=font, width=50, justify='center')
     sprint_input.grid(row=2, column=1)
 
-    tk.Label(root, text="Priority").grid(row=3, column=0)
+    tk.Label(root, text="Priority (Optional)").grid(row=3, column=0)
     priority_input = tk.Entry(root, font=font, width=50, justify='center')
     priority_input.grid(row=3, column=1)
     root.grid_rowconfigure(4, minsize=20) # Add an empty row with a height of 20 pixels
@@ -352,6 +356,11 @@ def plot(df):
     plt.ylabel('Remaining Tasks')
     plt.title(title)
     plt.grid()
+    # Add some space at the bottom of the plot for the timestamp
+    plt.subplots_adjust(right=0.8)
+
+    # Add the timestamp outside the plot
+    plt.text(1.03, 0.45, f"Generated on: {now_date}", transform=plt.gca().transAxes, fontsize=10, rotation=90)
     plt.savefig(filename, format="pdf", bbox_inches="tight")
     plt.show()
 
@@ -368,8 +377,9 @@ def main():
     df1 = sheet_data_processing(res1)
     plot(df1)
     plot_prio_chart = True
-    df2 = sheet_data_processing(res2)
-    plot(df2)
+    if not skip_prio_plot:
+        df2 = sheet_data_processing(res2)
+        plot(df2)
 
 if __name__ == '__main__':
     main()
