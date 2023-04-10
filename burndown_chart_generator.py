@@ -12,6 +12,7 @@ from tkinter import ttk, messagebox
 from tkcalendar import Calendar
 import logging
 import warnings
+import re
 
 warnings.filterwarnings("ignore", message="Workbook contains no default style, apply openpyxl's default")
 
@@ -22,6 +23,59 @@ logging.info('This is an info message')
 logging.warning('This is a warning message')
 logging.error('This is an error message')
 logging.critical('This is a critical message')
+
+# Configuration for level 1 and level 2
+config = {
+    "Lidar OS": [
+        "-----",
+        "F1 -  SW Execution Env Infra",
+        "F2 -  SW Execution",
+        "F4 - SW Update",
+        "F5 - HW Management and Safety Monitoring",
+        "F6- Cyber Security",
+        "F10 - Sensor Basic",
+        "SYS Integration Team",
+        "Integration Team",
+        "SYSFOs/Domain Archi Team",
+        "*Plot all modules separately*",
+    ],
+    "Product": [
+        "-----",
+        "Sys Arch",
+        "Simulation",
+        "Visu & Vehicle Reference Systems",
+        "Point Cloud",
+        "Product System Validation",
+        "Range Monitoring Module",
+        "System Standards & Release",
+        "HIL",
+        "KPI",
+        "Statistical Campaign",
+        "EOL",
+        "*Plot all modules separately*",
+    ],
+    "Physical Samples": [
+        "-----",
+        "Integration Module",
+        "Motor Module",
+        "Mechanical Design Module",
+        "HW Module",
+        "DV PV",
+        "Optical Beam Path",
+        "*Plot all modules separately*",
+    ],
+    # "Functions": [
+    #     "Roadshape",
+    #     "Point Cloud Plus",
+    #     "Visibility and Blockage",
+    #     "OMES",
+    #     "Object Detection",
+    #     "EOLC",
+    #     "Heating and Cleaning",
+    #     "EGMO",
+    #     "SIL",
+    # ],
+}
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
@@ -55,6 +109,13 @@ os.chdir(script_dir)
 # to your local drive by clicking the button SAVE                               #
 #################################################################################
 
+
+def update_level2_dropdown(*args):
+    level1_selection = level1_var.get()
+    level2_options = config[level1_selection]
+    level2_var.set(level2_options[0])
+    level2_dropdown["values"] = level2_options
+
 def get_date(text):
     def center_window(window, width, height):
         screen_width = window.winfo_screenwidth()
@@ -78,8 +139,8 @@ def get_date(text):
     top = tk.Toplevel(root)
 
     # Set the desired width and height for the Toplevel window
-    width = 1200
-    height = 900
+    width = 900
+    height = 600
     center_window(top, width, height)
 
     cal = Calendar(top,
@@ -94,7 +155,9 @@ def get_date(text):
     help_button.pack(side=tk.BOTTOM, anchor=tk.SE, padx=(0, 20), pady=(0, 20))
 
     selected_date = None
+    root.attributes("-topmost", True)
     root.mainloop()
+    root.destroy()
 
     return cal.selection_get()
 def convertDate2Datetime(date):
@@ -123,23 +186,43 @@ def read_excel_sheet():
 
     return excel_df
 
-def filter_data_by_regex(data, pi_val, team_org_val, sprint_val):
-    regex_pattern = f'.*{pi_val}.*{team_org_val}.*Sprint {sprint_val}.*'
-    filtered_data = data[data['Planned For'].str.match(regex_pattern)]
-    if filtered_data.empty == True:
-        messagebox.showwarning("Warning", "Can not find your input in column 'Planned For'")
-        sys.exit()
+def filter_data_by_regex(data, pi_val, level1_input, level2_input, sprint_val):
+    global plot_all
+    plot_all = False
+    if level2_input == '-----':
+        regex_pattern = fr'.*{pi_val}.*{level1_input}\s*.*Sprint\s*{sprint_val}.*'
+    elif level2_input == '*Plot all modules separately*':
+        plot_all = True
+
+    else:
+        regex_pattern = fr'.*{pi_val}.*{level1_input}\s*>\s*{level2_input}.*Sprint\s*{sprint_val}.*'
+
+    if plot_all == False:
+        filtered_data = data[data['Planned For'].str.match(regex_pattern)]
+
+        if filtered_data.empty == True:
+            messagebox.showwarning("Warning", "Can not find your input in column 'Planned For'")
+            sys.exit()
+    else:
+        filtered_data = data
+
     return filtered_data
 
 # Create a simple GUI using Tkinter to get user input
 def submit():
-    global res1, res2, pi_val, team_org_val, sprint_val, priority_val, skip_prio_plot
+    global res1, res2, pi_val, level1_input, level2_input, sprint_val, priority_val, skip_prio_plot
     skip_prio_plot = False
     pi_val = pi_input.get()
-    team_org_val = team_org_input.get()
+    #team_org_val = level1_var.get() + ' > ' + level2_var.get()
+    level1_input = level1_var.get()
+    level2_input = level2_var.get()
     sprint_val = sprint_input.get()
     priority_val = priority_input.get()
-    res1 = filter_data_by_regex(excel_df,pi_val,team_org_val,sprint_val)
+    try:
+        res1 = filter_data_by_regex(excel_df,pi_val,level1_input,level2_input, sprint_val)
+    except:
+        res1 = excel_df
+
     if priority_val == '':
         skip_prio_plot == True
     else:
@@ -147,14 +230,46 @@ def submit():
     submit_flag.set('1')
     root.quit()
 
+
+
 def create_input_gui():
-    global pi_input, team_org_input, sprint_input, priority_input, root, submit_flag
+    global pi_input, sprint_input, priority_input, root, submit_flag
     root = tk.Tk()
     root.title("User Inputs for generating Burndown-Chart:")
 
     # Set the window size
-    window_width = 600
-    window_height = 150
+    window_width = 580
+    window_height = 330
+
+    global level1_var, level1_options, level2_var, level2_options, level2_dropdown
+
+    level1_var = tk.StringVar()
+    level2_var = tk.StringVar()
+
+    level1_options = list(config.keys())
+    level1_var.set(level1_options[0])
+
+    # Create labels for the dropdown menus
+    level1_title = tk.Label(root, text="Pillar:")
+    level2_title = tk.Label(root, text="Module:")
+    # Resize the font to size 10
+    level1_title.configure(font=("TkDefaultFont", 10))
+    # Resize the font to size 10
+    level2_title.configure(font=("TkDefaultFont", 10))
+
+    level1_title.grid(row=0, column=0, padx=(80,0), pady=(10,0), sticky='w')
+    level2_title.grid(row=1, column=0, padx=(80,0), pady=(10,0), sticky='w')
+
+    level1_dropdown = ttk.Combobox(root, textvariable=level1_var, values=level1_options, width=40, height=30)
+    level1_dropdown.grid(row=0, column=0, padx=(160,0), pady=(10,0))
+
+    level2_options = config[level1_options[0]]
+    level2_var.set(level2_options[0])
+
+    level2_dropdown = ttk.Combobox(root, textvariable=level2_var, values=level2_options, width=40, height=30)
+    level2_dropdown.grid(row=1, column=0, padx=(160,0), pady=(10,0))
+
+    level1_var.trace("w", update_level2_dropdown)
 
     # Calculate the center position
     screen_width = root.winfo_screenwidth()
@@ -166,33 +281,39 @@ def create_input_gui():
     root.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
 
     # Set font size for better readability
-    font = tkfont.Font(size=17)
+    font = tkfont.Font(size=15)
+
+    # Add some vertical spacing
+    root.rowconfigure(2, minsize=20)
 
     submit_flag = tk.StringVar()
     submit_flag.set('0')
 
-    tk.Label(root, text="PI").grid(row=0, column=0)
-    pi_input = tk.Entry(root, font=font, width=50, justify='center')
-    pi_input.grid(row=0, column=1)
+    tk.Label(root, text="PI").grid(row=3, column=0, padx=(80, 0), pady=(10,0),sticky='w')
+    pi_input = tk.Entry(root, font=font, width=10, justify='center')
+    pi_input.grid(row=3, column=0, padx=(200, 0), pady=(10,0), sticky='w')
 
-    tk.Label(root, text="Team Organization").grid(row=1, column=0)
-    team_org_input = tk.Entry(root, font=font, width=50, justify='center')
-    team_org_input.grid(row=1, column=1)
+    tk.Label(root, text="Sprint").grid(row=4, column=0, padx=(80, 0), pady=(10,0), sticky='w')
+    sprint_input = tk.Entry(root, font=font, width=10, justify='center')
+    sprint_input.grid(row=4, column=0, padx=(200, 0), pady=(10,0), sticky='w')
 
-    tk.Label(root, text="Sprint").grid(row=2, column=0)
-    sprint_input = tk.Entry(root, font=font, width=50, justify='center')
-    sprint_input.grid(row=2, column=1)
+    tk.Label(root, text="Priority (Optional)").grid(row=5, column=0, padx=(80, 0), pady=(10,0), sticky='w')
+    priority_input = tk.Entry(root, font=font, width=10, justify='center')
+    priority_input.grid(row=5, column=0, padx=(200, 0), pady=(10,0), sticky='w')
+    root.grid_rowconfigure(4, minsize=10) # Add an empty row with a height of 20 pixels
+    button_width = 7  # Set the button width
 
-    tk.Label(root, text="Priority (Optional)").grid(row=3, column=0)
-    priority_input = tk.Entry(root, font=font, width=50, justify='center')
-    priority_input.grid(row=3, column=1)
-    root.grid_rowconfigure(4, minsize=20) # Add an empty row with a height of 20 pixels
-    button_width = 10  # Set the button width
-    tk.Button(root, text="Submit", command=lambda: submit(), font=font, bg='green', width=button_width).grid(row=5,
+    # Add some vertical spacing
+    root.rowconfigure(6, minsize=30)
+    root.rowconfigure(7, minsize=30)
+
+    tk.Button(root, text="Submit", command=lambda: submit(), font=font, bg='light green', width=button_width).grid(row=8,
                                                                                                              column=0,
-                                                                                                             columnspan=2)
+                                                                                                             padx=(50,0),
+                                                                                                             columnspan=1)
     root.grid_columnconfigure(0, weight=1)  # Add padding to the left of the button
     root.grid_columnconfigure(1, weight=1)  # Add padding to the right of the button
+    root.attributes("-topmost", True)
     root.mainloop()
 
 def sheet_data_processing(excel_df):
@@ -292,6 +413,9 @@ def sheet_data_processing(excel_df):
 
     return df3
 
+def replace_non_alphanumeric(text):
+    return re.sub(r'[^a-zA-Z0-9]+', '_', text)
+
 def plot(df):
     actual_plot_flag = True
     ideal_plot_flag = True
@@ -314,7 +438,7 @@ def plot(df):
         print("The 'ideal remaining tasks' column contains NaN values. Skipping plot.")
         ideal_plot_flag = False
     else:
-        ax.plot(date_range[df_idx_list], df['ideal remaining tasks'][df_idx_list], label='Ideal')
+        ax.plot(date_range[df_idx_list], df['ideal remaining tasks'][df_idx_list], label='Plan')
 
     if datetime64_obj not in date_range:
          if datetime64_obj < date_range[0]:
@@ -347,11 +471,18 @@ def plot(df):
     plt.legend(loc='center left', fontsize=7)
     plt.xticks(date_range, fontsize=7)
     plt.yticks(fontsize=7)
-    if plot_prio_chart == False:
-        title = "Burndown Chart" + ' ' + 'PI ' + pi_input.get() + ' ' + team_org_input.get() + ' Sprint ' +sprint_input.get()
+    if plot_all == True:
+        if plot_prio_chart == False:
+            title = "Burndown Chart" + ' ' + 'PI ' + pi_val + ' ' + level1_input + ' ' + module_name + ' Sprint ' + sprint_val
+        else:
+            title = "Burndown Chart" + ' ' + 'PI ' + pi_val + ' ' + level1_input + ' ' + module_name + ' Sprint ' + sprint_val + ' Prio: ' + priority_val
     else:
-        title = "Burndown Chart" + ' ' + 'PI ' + pi_input.get() + ' ' + team_org_input.get() + ' Sprint ' +sprint_input.get() + ' Prio: ' + priority_val
-    filename = title.replace('>', '-').replace(' ', '_') + '.pdf'
+        if plot_prio_chart == False:
+            title = "Burndown Chart" + ' ' + 'PI ' + pi_val + ' ' + level1_input + ' ' + level2_input + ' Sprint ' +sprint_val
+        else:
+            title = "Burndown Chart" + ' ' + 'PI ' + pi_val + ' ' + level1_input + ' ' + level2_input  + ' Sprint ' +sprint_val + ' Prio: ' + priority_val
+    # filename = title.replace('>', '-').replace(' ', '_') + '.pdf'
+    filename = replace_non_alphanumeric(title) + '.pdf'
     plt.xlabel('Days')
     plt.ylabel('Remaining Tasks')
     plt.title(title)
@@ -364,6 +495,7 @@ def plot(df):
     plt.savefig(filename, format="pdf", bbox_inches="tight")
     plt.show()
 
+
 def main():
 
     global start_date, end_date, plot_prio_chart
@@ -371,15 +503,36 @@ def main():
     start_date = get_date('Select Start Date')
     end_date = get_date('Select End Date')
     global excel_df
-    excel_df= read_excel_sheet()
+    excel_df = read_excel_sheet()
+    # start_date = get_date('Select Start Date')
+    # end_date = get_date('Select End Date')
     create_input_gui()
     submit()
-    df1 = sheet_data_processing(res1)
-    plot(df1)
-    plot_prio_chart = True
-    if not skip_prio_plot:
-        df2 = sheet_data_processing(res2)
-        plot(df2)
+    #root.destroy()
+    if plot_all == True:
+        global module_name
+        for k in config[level1_input][1:-1]:
+            module_name = k
+            re_pattern = fr'.*{pi_val}.*{level1_input}\s*>\s*{k}.*Sprint\s*{sprint_val}.*'
+            filter_data_1 = excel_df[excel_df['Planned For'].str.match(re_pattern)]
+            if skip_prio_plot == False:
+                filter_data_2 = filter_data_1[filter_data_1['Priority'] == int(priority_val)]
+            df1 = sheet_data_processing(filter_data_1)
+            plot(df1)
+            plot_prio_chart = True
+            if not skip_prio_plot:
+                df2 = sheet_data_processing(filter_data_2)
+                plot(df2)
+                plot_prio_chart = False
+        print('')
+
+    else:
+        df1 = sheet_data_processing(res1)
+        plot(df1)
+        plot_prio_chart = True
+        if not skip_prio_plot:
+            df2 = sheet_data_processing(res2)
+            plot(df2)
 
 if __name__ == '__main__':
     main()
