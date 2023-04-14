@@ -17,7 +17,6 @@ from tkcalendar import Calendar
 warnings.filterwarnings("ignore",
                         message="Workbook contains no default style, apply openpyxl's default")
 
-
 logging.basicConfig(filename='script.log', level=logging.DEBUG)
 logging.debug('This is a debug message')
 logging.info('This is an info message')
@@ -80,6 +79,8 @@ config = {
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
+
+
 # ==========================================
 #  Title:  Burndown Chart Generator
 #  Author: Yifei Wang
@@ -116,6 +117,7 @@ def update_level2_dropdown(*args):
     level2_options = config[level1_selection]
     level2_var.set(level2_options[0])
     level2_dropdown["values"] = level2_options
+
 
 def get_date(text):
     def center_window(window, width, height):
@@ -154,10 +156,10 @@ def get_date(text):
               bd=2, relief='raised').pack(pady=(45, 0))
     # Add a Help button
     help_button = tk.Button(top, text="Help", command=show_help,
-                            font=("Arial", 14),background='cyan',
+                            font=("Arial", 14), background='cyan',
                             foreground='black',
                             activebackground='green',
-                            activeforeground='white',)
+                            activeforeground='white', )
     help_button.pack(side=tk.BOTTOM, anchor=tk.SE, padx=(0, 20), pady=(0, 20))
 
     selected_date = None
@@ -166,8 +168,9 @@ def get_date(text):
     root.destroy()
 
     return cal.selection_get()
-def convertDate2Datetime(date):
 
+
+def convertDate2Datetime(date):
     if isinstance(date, str):
         closedDateYear = int(date.split('/')[2][:4])
         closedDateMonth = int(date.split('/')[0])
@@ -177,12 +180,12 @@ def convertDate2Datetime(date):
         date = ''
     return date
 
-def generate_data_list(start_date,end_date):
 
-    return pd.date_range(start_date,end_date, freq='d')
+def generate_data_list(start_date, end_date):
+    return pd.date_range(start_date, end_date, freq='d')
+
 
 def read_excel_sheet():
-
     file_path = filedialog.askopenfilename(initialdir=os.getcwd(),
                                            title="Select the path of exported Excel from TeamForge",
                                            filetypes=[("Excel files", "*.xlsx")])
@@ -193,8 +196,8 @@ def read_excel_sheet():
 
     return excel_df
 
+
 def filter_data_by_regex(data, pi_val, level1_input, level2_input, sprint_val):
-    global plot_all
     plot_all = False
     if level2_input == '-----':
         regex_pattern = fr'.*{pi_val}.*{level1_input}\s*.*Sprint\s*{sprint_val}.*'
@@ -213,11 +216,12 @@ def filter_data_by_regex(data, pi_val, level1_input, level2_input, sprint_val):
     else:
         filtered_data = data
 
-    return filtered_data
+    return filtered_data, plot_all
+
 
 # Create a simple GUI using Tkinter to get user input
-def submit():
-    global res1, res2, pi_val, level1_input, level2_input, sprint_val, priority_val, skip_prio_plot
+def submit(excel_df):
+    global pi_val, level1_input, level2_input, sprint_val, priority_val
     skip_prio_plot = False
     pi_val = pi_input.get()
     level1_input = level1_var.get()
@@ -225,20 +229,20 @@ def submit():
     sprint_val = sprint_input.get()
     priority_val = priority_input.get()
     try:
-        res1 = filter_data_by_regex(excel_df,pi_val,level1_input,level2_input, sprint_val)
+        res1, plot_all = filter_data_by_regex(excel_df, pi_val, level1_input, level2_input, sprint_val)
     except:
-        res1 = excel_df
-
+        res1, plot_all = excel_df
+    res2 = ""
     if priority_val == '':
-        skip_prio_plot is True
+        skip_prio_plot = True
     else:
         res2 = res1[res1['Priority'] == int(priority_val)]
     submit_flag.set('1')
     root.quit()
+    return plot_all, res1, res2, skip_prio_plot
 
 
-
-def create_input_gui():
+def create_input_gui(excel_df):
     global pi_input, sprint_input, priority_input, root, submit_flag
     root = tk.Tk()
     root.title("User Inputs for generating Burndown-Chart:")
@@ -263,19 +267,19 @@ def create_input_gui():
     # Resize the font to size 10
     level2_title.configure(font=("TkDefaultFont", 10))
 
-    level1_title.grid(row=0, column=0, padx=(80,0), pady=(10,0), sticky='w')
-    level2_title.grid(row=1, column=0, padx=(80,0), pady=(10,0), sticky='w')
+    level1_title.grid(row=0, column=0, padx=(80, 0), pady=(10, 0), sticky='w')
+    level2_title.grid(row=1, column=0, padx=(80, 0), pady=(10, 0), sticky='w')
 
     level1_dropdown = ttk.Combobox(root, textvariable=level1_var,
                                    values=level1_options, width=40, height=30)
-    level1_dropdown.grid(row=0, column=0, padx=(160,0), pady=(10,0))
+    level1_dropdown.grid(row=0, column=0, padx=(160, 0), pady=(10, 0))
 
     level2_options = config[level1_options[0]]
     level2_var.set(level2_options[0])
 
     level2_dropdown = ttk.Combobox(root, textvariable=level2_var,
                                    values=level2_options, width=40, height=30)
-    level2_dropdown.grid(row=1, column=0, padx=(160,0), pady=(10,0))
+    level2_dropdown.grid(row=1, column=0, padx=(160, 0), pady=(10, 0))
 
     level1_var.trace("w", update_level2_dropdown)
 
@@ -297,34 +301,34 @@ def create_input_gui():
     submit_flag = tk.StringVar()
     submit_flag.set('0')
 
-    tk.Label(root, text="PI").grid(row=3, column=0, padx=(80, 0), pady=(10,0),sticky='w')
+    tk.Label(root, text="PI").grid(row=3, column=0, padx=(80, 0), pady=(10, 0), sticky='w')
     pi_input = tk.Entry(root, font=font, width=10, justify='center')
-    pi_input.grid(row=3, column=0, padx=(200, 0), pady=(10,0), sticky='w')
+    pi_input.grid(row=3, column=0, padx=(200, 0), pady=(10, 0), sticky='w')
 
-    tk.Label(root, text="Sprint").grid(row=4, column=0, padx=(80, 0), pady=(10,0), sticky='w')
+    tk.Label(root, text="Sprint").grid(row=4, column=0, padx=(80, 0), pady=(10, 0), sticky='w')
     sprint_input = tk.Entry(root, font=font, width=10, justify='center')
-    sprint_input.grid(row=4, column=0, padx=(200, 0), pady=(10,0), sticky='w')
+    sprint_input.grid(row=4, column=0, padx=(200, 0), pady=(10, 0), sticky='w')
 
-    tk.Label(root, text="Priority (Optional)").grid(row=5, column=0, padx=(80, 0), pady=(10,0), sticky='w')
+    tk.Label(root, text="Priority (Optional)").grid(row=5, column=0, padx=(80, 0), pady=(10, 0), sticky='w')
     priority_input = tk.Entry(root, font=font, width=10, justify='center')
-    priority_input.grid(row=5, column=0, padx=(200, 0), pady=(10,0), sticky='w')
-    root.grid_rowconfigure(4, minsize=10) # Add an empty row with a height of 20 pixels
+    priority_input.grid(row=5, column=0, padx=(200, 0), pady=(10, 0), sticky='w')
+    root.grid_rowconfigure(4, minsize=10)  # Add an empty row with a height of 20 pixels
     button_width = 7  # Set the button width
 
     # Add some vertical spacing
     root.rowconfigure(6, minsize=30)
     root.rowconfigure(7, minsize=30)
 
-    tk.Button(root, text="Submit", command=lambda: submit(),
+    tk.Button(root, text="Submit", command=lambda: submit(excel_df),
               font=font, bg='light green',
-              width=button_width).grid(row=8,column=0,padx=(50,0),columnspan=1)
+              width=button_width).grid(row=8, column=0, padx=(50, 0), columnspan=1)
     root.grid_columnconfigure(0, weight=1)  # Add padding to the left of the button
     root.grid_columnconfigure(1, weight=1)  # Add padding to the right of the button
     root.attributes("-topmost", True)
     root.mainloop()
 
-def sheet_data_processing(excel_df):
 
+def sheet_data_processing(excel_df, start_date, end_date):
     id_list = []
     due_date_list = []
 
@@ -339,7 +343,7 @@ def sheet_data_processing(excel_df):
         else:
             excel_df = excel_df.drop(k)
 
-    due_date_id_list = [(id, cw) for id, cw in zip(id_list, due_date_list)]
+    due_date_id_list = list(zip(id_list, due_date_list))
 
     tasks_per_due_date_dict = collections.defaultdict(list)
 
@@ -354,7 +358,7 @@ def sheet_data_processing(excel_df):
 
     df = pd.DataFrame(np.transpose(np.array([list(due_date_id_list_keys),
                                              num_tasks_per_due_date_list])),
-                                    columns=['due date', 'planned'])
+                      columns=['due date', 'planned'])
     df = df.sort_values(by=['due date'])  # sort the values by CWs
 
     # create the other 3 columns
@@ -365,9 +369,11 @@ def sheet_data_processing(excel_df):
     for i in excel_df.index:
         if excel_df.loc[i, 'Status'] == 'Closed' and convertDate2Datetime(
                 excel_df.loc[i, 'Last Status Change']) <= convertDate2Datetime(excel_df.loc[i, 'Due Date']):
-            excel_df.loc[i, 'completed as planned'] = True  # column 'completed as planned' shows Boolean which displays if the tasks completed
+            excel_df.loc[
+                i, 'completed as planned'] = True  # column 'completed as planned' shows Boolean which displays if the tasks completed
             due_date_nr = excel_df.loc[i, 'Due Date']
-            df.loc[df['due date'] == due_date_nr, 'done as plan'] += 1  # column 'done as plan' shows the count of tasks completed as plan
+            df.loc[df[
+                       'due date'] == due_date_nr, 'done as plan'] += 1  # column 'done as plan' shows the count of tasks completed as plan
         else:
             excel_df.loc[i, 'completed as planned'] = False
 
@@ -420,16 +426,16 @@ def sheet_data_processing(excel_df):
     for i in excel_df.index:
         if excel_df.loc[i, 'Status'] == 'Closed':
             for j in df3.index:
-                if convertDate2Datetime(excel_df.loc[i, 'Last Status Change']) == df3['date'].values[j].astype('M8[D]').astype('O'):
+                if convertDate2Datetime(excel_df.loc[i, 'Last Status Change']) == df3['date'].values[j].astype(
+                        'M8[D]').astype('O'):
                     df3.loc[j, 'done_at_this_day'] += 1
 
     for j in df3['date'].index:
         df3.loc[j, 'actual remaining tasks'] = sum(df3['planned'].astype(int)) - sum(df3['done_at_this_day'][:j + 1])
     global exceed_item_count
     exceed_item_count = len(date_range_2) - len(date_range)
-    df3 = df3.drop(index= range(exceed_item_count))
+    df3 = df3.drop(index=range(exceed_item_count))
     df3 = df3.reset_index(drop=True)
-
 
     if df3.loc[0, 'ideal remaining tasks'] == 0:
         df3.loc[0, 'ideal remaining tasks'] = sum(df3['planned'].astype(int))
@@ -438,19 +444,21 @@ def sheet_data_processing(excel_df):
 
     return df3
 
+
 def replace_non_alphanumeric(text):
     return re.sub(r'[^a-zA-Z0-9]+', '_', text)
 
-def plot(df):
+
+def plot(df, plot_all, *args):
     actual_plot_flag = True
     ideal_plot_flag = True
-    now_date_compare_date_range = 0 # -1: eariler than the range; 0:in the range ; 1: later than the range
+    now_date_compare_date_range = 0  # -1: eariler than the range; 0:in the range ; 1: later than the range
     fig, ax = plt.subplots()  # Create a figure containing a single axes
     now_date = datetime.date.today()
     datetime_obj = datetime.datetime.combine(now_date, datetime.datetime.min.time())
     datetime64_obj = np.datetime64(datetime_obj)
     if datetime64_obj in date_range:
-        now_date_idx = date_range.get_loc(datetime64_obj)+1
+        now_date_idx = date_range.get_loc(datetime64_obj) + 1
     else:
         now_date_idx = len(date_range)
     df_idx_list.insert(0, 0)
@@ -498,18 +506,18 @@ def plot(df):
     plt.yticks(fontsize=7)
     if plot_all is True:
         if plot_prio_chart is False:
-            title = "Burndown Chart" + ' ' + 'PI ' + pi_val + ' ' +\
-                    level1_input + ' ' + module_name + ' Sprint ' + sprint_val
+            title = "Burndown Chart" + ' ' + 'PI ' + pi_val + ' ' + \
+                    level1_input + ' ' + args[0] + ' Sprint ' + sprint_val
         else:
-            title = "Burndown Chart" + ' ' + 'PI ' + pi_val + ' ' +\
-                    level1_input + ' ' + module_name + ' Sprint ' + sprint_val + ' Prio: ' + priority_val
+            title = "Burndown Chart" + ' ' + 'PI ' + pi_val + ' ' + \
+                    level1_input + ' ' + args[0] + ' Sprint ' + sprint_val + ' Prio: ' + priority_val
     else:
         if plot_prio_chart is False:
-            title = "Burndown Chart" + ' ' + 'PI ' + pi_val + ' ' +\
-                    level1_input + ' ' + level2_input + ' Sprint ' +sprint_val
+            title = "Burndown Chart" + ' ' + 'PI ' + pi_val + ' ' + \
+                    level1_input + ' ' + level2_input + ' Sprint ' + sprint_val
         else:
-            title = "Burndown Chart" + ' ' + 'PI ' + pi_val + ' ' +\
-                    level1_input + ' ' + level2_input  + ' Sprint ' +sprint_val + ' Prio: ' + priority_val
+            title = "Burndown Chart" + ' ' + 'PI ' + pi_val + ' ' + \
+                    level1_input + ' ' + level2_input + ' Sprint ' + sprint_val + ' Prio: ' + priority_val
     # filename = title.replace('>', '-').replace(' ', '_') + '.pdf'
     filename = replace_non_alphanumeric(title) + '.pdf'
     plt.xlabel('Days')
@@ -526,42 +534,41 @@ def plot(df):
 
 
 def main():
-
-    global start_date, end_date, plot_prio_chart
+    global plot_prio_chart
     plot_prio_chart = False
     start_date = get_date('Select Start Date')
     end_date = get_date('Select End Date')
-    global excel_df
+
     excel_df = read_excel_sheet()
-    # start_date = get_date('Select Start Date')
-    # end_date = get_date('Select End Date')
-    create_input_gui()
-    submit()
-    #root.destroy()
+
+    create_input_gui(excel_df)
+    plot_all, res1, res2, skip_prio_plot = submit(excel_df)
+
     if plot_all is True:
-        global module_name
         for k in config[level1_input][1:-1]:
             module_name = k
             re_pattern = fr'.*{pi_val}.*{level1_input}\s*>\s*{k}.*Sprint\s*{sprint_val}.*'
             filter_data_1 = excel_df[excel_df['Planned For'].str.match(re_pattern)]
-            if skip_prio_plot == False:
+            if skip_prio_plot is False and priority_val != '':
                 filter_data_2 = filter_data_1[filter_data_1['Priority'] == int(priority_val)]
-            df1 = sheet_data_processing(filter_data_1)
-            plot(df1)
+            else:
+                filter_data_2 = filter_data_1
+            df1 = sheet_data_processing(filter_data_1, start_date, end_date)
+            plot(df1, plot_all, module_name)
             plot_prio_chart = True
-            if not skip_prio_plot:
-                df2 = sheet_data_processing(filter_data_2)
-                plot(df2)
-                plot_prio_chart = False
-        print('')
+            if skip_prio_plot is False:
+                df2 = sheet_data_processing(filter_data_2, start_date, end_date)
+                plot(df2, plot_all, module_name)
+            plot_prio_chart = False
 
     else:
-        df1 = sheet_data_processing(res1)
-        plot(df1)
+        df1 = sheet_data_processing(res1, start_date, end_date)
+        plot(df1, plot_all)
         plot_prio_chart = True
         if not skip_prio_plot:
-            df2 = sheet_data_processing(res2)
-            plot(df2)
+            df2 = sheet_data_processing(res2, start_date, end_date)
+            plot(df2, plot_all)
+
 
 if __name__ == '__main__':
     main()
