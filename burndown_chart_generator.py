@@ -8,8 +8,6 @@ import tkinter as tk
 import tkinter.font as tkfont
 import warnings
 from tkinter import filedialog, messagebox, ttk
-from tk_html_widgets import HTMLLabel
-import webbrowser
 
 import matplotlib.pyplot as plt
 import numpy as np
