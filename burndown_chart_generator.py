@@ -8,6 +8,8 @@ import tkinter as tk
 import tkinter.font as tkfont
 import warnings
 from tkinter import filedialog, messagebox, ttk
+from tk_html_widgets import HTMLLabel
+import webbrowser
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,62 +26,8 @@ logging.warning('This is a warning message')
 logging.error('This is an error message')
 logging.critical('This is a critical message')
 
-# Configuration for level 1 and level 2
-config = {
-    "Lidar OS": [
-        "-----",
-        "F1 -  SW Execution Env Infra",
-        "F2 -  SW Execution",
-        "F4 - SW Update",
-        "F5 - HW Management and Safety Monitoring",
-        "F6- Cyber Security",
-        "F10 - Sensor Basic",
-        "SYS Integration Team",
-        "Integration Team",
-        "SYSFOs/Domain Archi Team",
-        "*Plot all modules separately*",
-    ],
-    "Product": [
-        "-----",
-        "Sys Arch",
-        "Simulation",
-        "Visu & Vehicle Reference Systems",
-        "Point Cloud",
-        "Product System Validation",
-        "Range Monitoring Module",
-        "System Standards & Release",
-        "HIL",
-        "KPI",
-        "Statistical Campaign",
-        "EOL",
-        "*Plot all modules separately*",
-    ],
-    "Physical Samples": [
-        "-----",
-        "Integration Module",
-        "Motor Module",
-        "Mechanical Design Module",
-        "HW Module",
-        "DV PV",
-        "Optical Beam Path",
-        "*Plot all modules separately*",
-    ],
-    # "Functions": [
-    #     "Roadshape",
-    #     "Point Cloud Plus",
-    #     "Visibility and Blockage",
-    #     "OMES",
-    #     "Object Detection",
-    #     "EOLC",
-    #     "Heating and Cleaning",
-    #     "EGMO",
-    #     "SIL",
-    # ],
-}
-
 script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
-
 
 # ==========================================
 #  Title:  Burndown Chart Generator
@@ -112,7 +60,7 @@ os.chdir(script_dir)
 #################################################################################
 
 
-def update_level2_dropdown(*args):
+def update_level2_dropdown(config, level1_var, level2_var, level2_dropdown):
     level1_selection = level1_var.get()
     level2_options = config[level1_selection]
     level2_var.set(level2_options[0])
@@ -220,7 +168,7 @@ def filter_data_by_regex(data, pi_val, level1_input, level2_input, sprint_val):
 
 
 # Create a simple GUI using Tkinter to get user input
-def submit(excel_df):
+def submit(excel_df, level1_var, level2_var):
     global pi_val, level1_input, level2_input, sprint_val, priority_val
     skip_prio_plot = False
     pi_val = pi_input.get()
@@ -231,7 +179,7 @@ def submit(excel_df):
     try:
         res1, plot_all = filter_data_by_regex(excel_df, pi_val, level1_input, level2_input, sprint_val)
     except:
-        res1, plot_all = excel_df
+        res1 = excel_df
     res2 = ""
     if priority_val == '':
         skip_prio_plot = True
@@ -241,8 +189,30 @@ def submit(excel_df):
     root.quit()
     return plot_all, res1, res2, skip_prio_plot
 
+def create_config_pillar_and_module(excel_df):
+    data = excel_df['Planned For']
 
-def create_input_gui(excel_df):
+    pattern = re.compile(r"PI 1 > (\w+[\s\w]*) > ([\w\s-]+)")
+
+    config = {}
+
+    for row in data:
+        match = pattern.search(row)
+        if match:
+            pillar = match.group(1)
+            module = match.group(2).strip()
+
+            if pillar not in config:
+                config[pillar] = ['-----']
+
+            if module not in config[pillar]:
+                config[pillar].append(module)
+
+    for pillar in config:
+        config[pillar].append('*Plot all modules separately*')
+
+    return config
+def create_input_gui(excel_df,config):
     global pi_input, sprint_input, priority_input, root, submit_flag
     root = tk.Tk()
     root.title("User Inputs for generating Burndown-Chart:")
@@ -251,7 +221,7 @@ def create_input_gui(excel_df):
     window_width = 580
     window_height = 330
 
-    global level1_var, level1_options, level2_var, level2_options, level2_dropdown
+    global level1_options, level2_options
 
     level1_var = tk.StringVar()
     level2_var = tk.StringVar()
@@ -263,9 +233,9 @@ def create_input_gui(excel_df):
     level1_title = tk.Label(root, text="Pillar:")
     level2_title = tk.Label(root, text="Module:")
     # Resize the font to size 10
-    level1_title.configure(font=("TkDefaultFont", 10))
+    level1_title.configure(font=("TkFixedFont", 10))
     # Resize the font to size 10
-    level2_title.configure(font=("TkDefaultFont", 10))
+    level2_title.configure(font=("TkFixedFont", 10))
 
     level1_title.grid(row=0, column=0, padx=(80, 0), pady=(10, 0), sticky='w')
     level2_title.grid(row=1, column=0, padx=(80, 0), pady=(10, 0), sticky='w')
@@ -281,7 +251,7 @@ def create_input_gui(excel_df):
                                    values=level2_options, width=40, height=30)
     level2_dropdown.grid(row=1, column=0, padx=(160, 0), pady=(10, 0))
 
-    level1_var.trace("w", update_level2_dropdown)
+    level1_var.trace("w", lambda *args: update_level2_dropdown(config, level1_var, level2_var, level2_dropdown))
 
     # Calculate the center position
     screen_width = root.winfo_screenwidth()
@@ -319,7 +289,7 @@ def create_input_gui(excel_df):
     root.rowconfigure(6, minsize=30)
     root.rowconfigure(7, minsize=30)
 
-    tk.Button(root, text="Submit", command=lambda: submit(excel_df),
+    tk.Button(root, text="Submit", command=lambda: submit(excel_df, level1_var, level2_var),
               font=font, bg='light green',
               width=button_width).grid(row=8, column=0, padx=(50, 0), columnspan=1)
     root.grid_columnconfigure(0, weight=1)  # Add padding to the left of the button
@@ -327,7 +297,7 @@ def create_input_gui(excel_df):
     root.attributes("-topmost", True)
     root.mainloop()
 
-
+    return level1_var, level2_var
 def sheet_data_processing(excel_df, start_date, end_date):
     id_list = []
     due_date_list = []
@@ -350,7 +320,6 @@ def sheet_data_processing(excel_df, start_date, end_date):
     for j, k in due_date_id_list:
         tasks_per_due_date_dict[k].append(j)
 
-    # list all CWs
     due_date_id_list_keys = tasks_per_due_date_dict.keys()
     num_tasks_per_due_date_list = []  # a list count the artifacts for each date
     for i in tasks_per_due_date_dict.keys():
@@ -359,7 +328,7 @@ def sheet_data_processing(excel_df, start_date, end_date):
     df = pd.DataFrame(np.transpose(np.array([list(due_date_id_list_keys),
                                              num_tasks_per_due_date_list])),
                       columns=['due date', 'planned'])
-    df = df.sort_values(by=['due date'])  # sort the values by CWs
+    df = df.sort_values(by=['due date'])
 
     # create the other 3 columns
     df['done as plan'] = 0
@@ -383,15 +352,15 @@ def sheet_data_processing(excel_df, start_date, end_date):
     date_range = generate_data_list(start_date, end_date)
 
     close_df = excel_df[excel_df['Status'] == 'Closed']
+    # aim to calculate all tasks finished before start date
+    # those tasks shall be excluded while calculating the actual and forcast
     earliest_date = close_df['Last Status Change'].min()
-
+    # this date represent the earliest-task-close-date  within the selected sprint
     new_early_date = convertDate2Datetime(earliest_date)
 
-    if new_early_date != '':
-        new_date_range = pd.date_range(new_early_date, periods=1)
-
+    if new_early_date != '' and new_early_date < date_range.min().date():
         # Concatenate the new date range with the original date range
-        date_range_2 = new_date_range.union(date_range)
+        date_range_2 = pd.date_range(new_early_date, date_range.max(), freq='D')
     else:
         date_range_2 = date_range
     data3 = np.zeros(len(date_range_2))
@@ -443,7 +412,6 @@ def sheet_data_processing(excel_df, start_date, end_date):
     df_idx_list = [x - exceed_item_count for x in df_idx_list]
 
     return df3
-
 
 def replace_non_alphanumeric(text):
     return re.sub(r'[^a-zA-Z0-9]+', '_', text)
@@ -518,7 +486,6 @@ def plot(df, plot_all, *args):
         else:
             title = "Burndown Chart" + ' ' + 'PI ' + pi_val + ' ' + \
                     level1_input + ' ' + level2_input + ' Sprint ' + sprint_val + ' Prio: ' + priority_val
-    # filename = title.replace('>', '-').replace(' ', '_') + '.pdf'
     filename = replace_non_alphanumeric(title) + '.pdf'
     plt.xlabel('Days')
     plt.ylabel('Remaining Tasks')
@@ -532,7 +499,6 @@ def plot(df, plot_all, *args):
     plt.savefig(filename, format="pdf", bbox_inches="tight")
     plt.show()
 
-
 def main():
     global plot_prio_chart
     plot_prio_chart = False
@@ -540,9 +506,10 @@ def main():
     end_date = get_date('Select End Date')
 
     excel_df = read_excel_sheet()
+    config = create_config_pillar_and_module(excel_df)
 
-    create_input_gui(excel_df)
-    plot_all, res1, res2, skip_prio_plot = submit(excel_df)
+    level1_var, level2_var = create_input_gui(excel_df,config)
+    plot_all, res1, res2, skip_prio_plot = submit(excel_df, level1_var, level2_var)
 
     if plot_all is True:
         for k in config[level1_input][1:-1]:
