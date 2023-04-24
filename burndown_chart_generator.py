@@ -10,12 +10,16 @@ import warnings
 from tkinter import filedialog, messagebox, ttk
 
 import matplotlib.pyplot as plt
+import matplotlib.backends.backend_pdf
 import numpy as np
 import pandas as pd
 from tkcalendar import Calendar
+from pandas.errors import SettingWithCopyWarning
 
 warnings.filterwarnings("ignore",
                         message="Workbook contains no default style, apply openpyxl's default")
+
+warnings.filterwarnings("ignore", category=SettingWithCopyWarning)
 
 logging.basicConfig(filename='script.log', level=logging.DEBUG)
 logging.debug('This is a debug message')
@@ -80,9 +84,10 @@ def get_date(text):
         root.quit()
 
     def show_help():
-        messagebox.showinfo('Help', 'Contact Name: Yifei Wang\nEmail: yifei.wang@valeo.com')
+        messagebox.showinfo('Contact', 'Contact Name: Yifei Wang\nEmail: yifei.wang@valeo.com')
 
     root = tk.Tk()
+    root.title("Burndown Chart Calendar")
     root.withdraw()  # keep the root window from appearing
 
     top = tk.Toplevel(root)
@@ -145,7 +150,7 @@ def read_excel_sheet():
 
 def filter_data_by_regex(data, pi_val, level1_input, level2_input, sprint_val):
     plot_all = False
-    if level2_input == '-----':
+    if level2_input == '*Pillar Level*':
         regex_pattern = fr'.*{pi_val}.*{level1_input}\s*.*Sprint\s*{sprint_val}.*'
     elif level2_input == '*Plot all modules separately*':
         plot_all = True
@@ -201,7 +206,7 @@ def create_config_pillar_and_module(excel_df):
             module = match.group(2).strip()
 
             if pillar not in config:
-                config[pillar] = ['-----']
+                config[pillar] = ['*Pillar Level*']
 
             if module not in config[pillar]:
                 config[pillar].append(module)
@@ -470,19 +475,22 @@ def plot(df, plot_all, *args):
     plt.legend(loc='center left', fontsize=7)
     plt.xticks(date_range, fontsize=7)
     plt.yticks(fontsize=7)
+    if len(args) == 0:
+        args = args + ('All Modules',)
+
     if plot_all is True:
         if plot_prio_chart is False:
-            title = "Burndown Chart" + ' ' + 'PI ' + pi_val + ' ' + \
+            title = 'PI ' + pi_val + ' ' + \
                     level1_input + ' ' + args[0] + ' Sprint ' + sprint_val
         else:
-            title = "Burndown Chart" + ' ' + 'PI ' + pi_val + ' ' + \
+            title = 'PI ' + pi_val + ' ' + \
                     level1_input + ' ' + args[0] + ' Sprint ' + sprint_val + ' Prio: ' + priority_val
     else:
         if plot_prio_chart is False:
-            title = "Burndown Chart" + ' ' + 'PI ' + pi_val + ' ' + \
+            title = 'PI ' + pi_val + ' ' + \
                     level1_input + ' ' + level2_input + ' Sprint ' + sprint_val
         else:
-            title = "Burndown Chart" + ' ' + 'PI ' + pi_val + ' ' + \
+            title = 'PI ' + pi_val + ' ' + \
                     level1_input + ' ' + level2_input + ' Sprint ' + sprint_val + ' Prio: ' + priority_val
     filename = replace_non_alphanumeric(title) + '.pdf'
     plt.xlabel('Days')
@@ -494,12 +502,17 @@ def plot(df, plot_all, *args):
 
     # Add the timestamp outside the plot
     plt.text(1.03, 0.45, f"Generated on: {now_date}", transform=plt.gca().transAxes, fontsize=10, rotation=90)
-    plt.savefig(filename, format="pdf", bbox_inches="tight")
-    plt.show()
+
+    if plot_all is False:
+        plt.savefig(filename, format="pdf", bbox_inches="tight")
+        plt.show()
+
+    return fig
 
 def main():
-    global plot_prio_chart
+    global plot_prio_chart, flag
     plot_prio_chart = False
+    flag = False
     start_date = get_date('Select Start Date')
     end_date = get_date('Select End Date')
 
@@ -510,6 +523,18 @@ def main():
     plot_all, res1, res2, skip_prio_plot = submit(excel_df, level1_var, level2_var)
 
     if plot_all is True:
+        figures = []
+        re_pattern = fr'.*{pi_val}.*{level1_input}\s*.*Sprint\s*{sprint_val}.*'
+        filter_data_1 = excel_df[excel_df['Planned For'].str.match(re_pattern)]
+        df1 = sheet_data_processing(filter_data_1, start_date, end_date)
+        fig1 = plot(df1, plot_all)
+        figures.append(fig1)
+        plot_prio_chart = True
+        if not skip_prio_plot:
+            df2 = sheet_data_processing(res2, start_date, end_date)
+            fig2 = plot(df2, plot_all)
+            figures.append(fig2)
+
         for k in config[level1_input][1:-1]:
             module_name = k
             re_pattern = fr'.*{pi_val}.*{level1_input}\s*>\s*{k}.*Sprint\s*{sprint_val}.*'
@@ -519,13 +544,38 @@ def main():
             else:
                 filter_data_2 = filter_data_1
             df1 = sheet_data_processing(filter_data_1, start_date, end_date)
-            plot(df1, plot_all, module_name)
+            fig1 = plot(df1, plot_all, module_name)
+            figures.append(fig1)
             plot_prio_chart = True
             if skip_prio_plot is False:
                 df2 = sheet_data_processing(filter_data_2, start_date, end_date)
-                plot(df2, plot_all, module_name)
+                fig2 = plot(df2, plot_all, module_name)
+                figures.append(fig2)
             plot_prio_chart = False
 
+        # plot_all = False
+
+        # Show a message to the user
+        root = tk.Tk()
+        root.withdraw()
+        # messagebox.showinfo(
+        #     title="Save PDF File",
+        #     message="Please select the location where you want to save the PDF file."
+        # )
+
+        # Create a file dialog to select the path where the PDF file should be saved
+        file_path = filedialog.asksaveasfilename(
+            title="Please select the location where you want to save the PDF file.",
+            defaultextension=".pdf",
+            filetypes=[("PDF", "*.pdf")]
+        )
+        # Save all figures to a single PDF file
+        pdf = matplotlib.backends.backend_pdf.PdfPages(file_path)
+        for fig in figures:
+            pdf.savefig(fig)
+        pdf.close()
+
+        os.system(f'start {file_path}')
     else:
         df1 = sheet_data_processing(res1, start_date, end_date)
         plot(df1, plot_all)
