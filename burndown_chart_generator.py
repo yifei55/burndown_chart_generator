@@ -30,7 +30,6 @@ logging.critical('This is a critical message')
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
-
 # ==========================================
 #  Title:  Burndown Chart Generator
 #  Author: Yifei Wang
@@ -61,14 +60,11 @@ os.chdir(script_dir)
 # to your local drive by clicking the button SAVE                               #
 #################################################################################
 
-
 def update_level2_dropdown(config, level1_var, level2_var, level2_dropdown):
     level1_selection = level1_var.get()
     level2_options = config[level1_selection]
     level2_var.set(level2_options[0])
     level2_dropdown["values"] = level2_options
-
-
 def get_date(text):
     def center_window(window, width, height):
         screen_width = window.winfo_screenwidth()
@@ -119,8 +115,6 @@ def get_date(text):
     root.destroy()
 
     return cal.selection_get()
-
-
 def convertDate2Datetime(date):
     if isinstance(date, str):
         closedDateYear = int(date.split('/')[2][:4])
@@ -130,12 +124,8 @@ def convertDate2Datetime(date):
     else:
         date = ''
     return date
-
-
 def generate_data_list(start_date, end_date):
     return pd.date_range(start_date, end_date, freq='d')
-
-
 def read_excel_sheet():
     file_path = filedialog.askopenfilename(initialdir=os.getcwd(),
                                            title="Select the path of exported Excel from TeamForge",
@@ -144,10 +134,9 @@ def read_excel_sheet():
 
     # Drop rows that don't start with 'PI' and don't contain 'Sprint'
     excel_df = data[data['Planned For'].str.startswith('PI') & data['Planned For'].str.contains('Sprint')]
+    excel_df = excel_df[excel_df['Status'] != 'Cancelled']
 
     return excel_df
-
-
 def filter_data_by_regex(data, pi_val, level1_input, level2_input, sprint_val):
     plot_all = False
     if level2_input == '*Pillar Level*':
@@ -169,7 +158,6 @@ def filter_data_by_regex(data, pi_val, level1_input, level2_input, sprint_val):
 
     return filtered_data, plot_all
 
-
 # Create a simple GUI using Tkinter to get user input
 def submit(excel_df, level1_var, level2_var):
     global pi_val, level1_input, level2_input, sprint_val, priority_val
@@ -183,6 +171,7 @@ def submit(excel_df, level1_var, level2_var):
         res1, plot_all = filter_data_by_regex(excel_df, pi_val, level1_input, level2_input, sprint_val)
     except:
         res1 = excel_df
+        plot_all = False
     res2 = ""
     if priority_val == '':
         skip_prio_plot = True
@@ -191,7 +180,6 @@ def submit(excel_df, level1_var, level2_var):
     submit_flag.set('1')
     root.quit()
     return plot_all, res1, res2, skip_prio_plot
-
 def create_config_pillar_and_module(excel_df):
     data = excel_df['Planned For']
 
@@ -415,11 +403,8 @@ def sheet_data_processing(excel_df, start_date, end_date):
     df_idx_list = [x - exceed_item_count for x in df_idx_list]
 
     return df3
-
 def replace_non_alphanumeric(text):
     return re.sub(r'[^a-zA-Z0-9]+', '_', text)
-
-
 def plot(df, plot_all, *args):
     actual_plot_flag = True
     ideal_plot_flag = True
@@ -508,9 +493,11 @@ def plot(df, plot_all, *args):
         plt.show()
 
     return fig
-
 def main():
     global plot_prio_chart, flag
+    # plot_prio_chart shows if it plot the chart with prio or not
+    # it determine the different data processing in plot function
+    # it initialize to False as it plot first the general figure without prio
     plot_prio_chart = False
     flag = False
     start_date = get_date('Select Start Date')
@@ -524,16 +511,20 @@ def main():
 
     if plot_all is True:
         figures = []
-        re_pattern = fr'.*{pi_val}.*{level1_input}\s*.*Sprint\s*{sprint_val}.*'
-        filter_data_1 = excel_df[excel_df['Planned For'].str.match(re_pattern)]
-        df1 = sheet_data_processing(filter_data_1, start_date, end_date)
-        fig1 = plot(df1, plot_all)
-        figures.append(fig1)
+        re_pattern_all = fr'.*{pi_val}.*{level1_input}\s*.*Sprint\s*{sprint_val}.*'
+        filter_data_1_all = res1[res1['Planned For'].str.match(re_pattern_all)]
+        df1_all = sheet_data_processing(filter_data_1_all, start_date, end_date)
+        fig1_all = plot(df1_all, plot_all)
+        figures.append(fig1_all)
         plot_prio_chart = True
-        if not skip_prio_plot:
-            df2 = sheet_data_processing(res2, start_date, end_date)
-            fig2 = plot(df2, plot_all)
-            figures.append(fig2)
+
+        if skip_prio_plot is False:
+            filter_data_2_all = res2[res2['Planned For'].str.match(re_pattern_all)]
+            df2_all = sheet_data_processing(filter_data_2_all, start_date, end_date)
+            fig2_all = plot(df2_all, plot_all)
+            figures.append(fig2_all)
+
+        plot_prio_chart = False
 
         for k in config[level1_input][1:-1]:
             module_name = k
@@ -558,10 +549,10 @@ def main():
         # Show a message to the user
         root = tk.Tk()
         root.withdraw()
-        # messagebox.showinfo(
-        #     title="Save PDF File",
-        #     message="Please select the location where you want to save the PDF file."
-        # )
+        messagebox.showinfo(
+            title="Save PDF File",
+            message="Please select the location where you want to save the PDF file."
+        )
 
         # Create a file dialog to select the path where the PDF file should be saved
         file_path = filedialog.asksaveasfilename(
@@ -583,7 +574,6 @@ def main():
         if not skip_prio_plot:
             df2 = sheet_data_processing(res2, start_date, end_date)
             plot(df2, plot_all)
-
 
 if __name__ == '__main__':
     main()
