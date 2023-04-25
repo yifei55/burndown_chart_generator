@@ -65,6 +65,7 @@ def update_level2_dropdown(config, level1_var, level2_var, level2_dropdown):
     level2_options = config[level1_selection]
     level2_var.set(level2_options[0])
     level2_dropdown["values"] = level2_options
+
 def get_date(text):
     def center_window(window, width, height):
         screen_width = window.winfo_screenwidth()
@@ -115,6 +116,7 @@ def get_date(text):
     root.destroy()
 
     return cal.selection_get()
+
 def convertDate2Datetime(date):
     if isinstance(date, str):
         closedDateYear = int(date.split('/')[2][:4])
@@ -124,8 +126,10 @@ def convertDate2Datetime(date):
     else:
         date = ''
     return date
+
 def generate_data_list(start_date, end_date):
     return pd.date_range(start_date, end_date, freq='d')
+
 def read_excel_sheet():
     file_path = filedialog.askopenfilename(initialdir=os.getcwd(),
                                            title="Select the path of exported Excel from TeamForge",
@@ -137,11 +141,12 @@ def read_excel_sheet():
     excel_df = excel_df[excel_df['Status'] != 'Cancelled']
 
     return excel_df
+
 def filter_data_by_regex(data, pi_val, level1_input, level2_input, sprint_val):
     plot_all = False
     if level2_input == '*Pillar Level*':
         regex_pattern = fr'.*{pi_val}.*{level1_input}\s*.*Sprint\s*{sprint_val}.*'
-    elif level2_input == '*Plot all modules separately*':
+    elif level2_input == '*Save all modules as PDF*':
         plot_all = True
 
     else:
@@ -180,10 +185,15 @@ def submit(excel_df, level1_var, level2_var):
     submit_flag.set('1')
     root.quit()
     return plot_all, res1, res2, skip_prio_plot
+
 def create_config_pillar_and_module(excel_df):
     data = excel_df['Planned For']
 
-    pattern = re.compile(r"PI 1 > (\w+[\s\w]*) > ([\w\s-]+)")
+    # pattern = re.compile(r"PI 1 > (\w+[\s\w]*) > ([\w\s-]+)")
+    # pattern = re.compile(r"PI\d*\s*> (\w+[\s\w]*) > ([\w\s-]+)")
+    # pattern = re.compile(r"PI\d+ > (\w+[\s\w]*) > ([\w\s-]+)")
+    # pattern = re.compile(r"PI \d+ > (\w+[\s\w]*) > ([\w\s-]+)")
+    pattern = re.compile(r"PI\s*\d+\s*>\s*(\w+(?:\s+\w+)*)\s*>\s*([\w\s-]+)")
 
     config = {}
 
@@ -200,9 +210,10 @@ def create_config_pillar_and_module(excel_df):
                 config[pillar].append(module)
 
     for pillar in config:
-        config[pillar].append('*Plot all modules separately*')
+        config[pillar].append('*Save all modules as PDF*')
 
     return config
+
 def create_input_gui(excel_df,config):
     global pi_input, sprint_input, priority_input, root, submit_flag
     root = tk.Tk()
@@ -289,6 +300,7 @@ def create_input_gui(excel_df,config):
     root.mainloop()
 
     return level1_var, level2_var
+
 def sheet_data_processing(excel_df, start_date, end_date):
     id_list = []
     due_date_list = []
@@ -403,8 +415,10 @@ def sheet_data_processing(excel_df, start_date, end_date):
     df_idx_list = [x - exceed_item_count for x in df_idx_list]
 
     return df3
+
 def replace_non_alphanumeric(text):
     return re.sub(r'[^a-zA-Z0-9]+', '_', text)
+
 def plot(df, plot_all, *args):
     actual_plot_flag = True
     ideal_plot_flag = True
@@ -491,8 +505,12 @@ def plot(df, plot_all, *args):
     if plot_all is False:
         plt.savefig(filename, format="pdf", bbox_inches="tight")
         plt.show()
+    else:
+        plt.close()
+
 
     return fig
+
 def main():
     global plot_prio_chart, flag
     # plot_prio_chart shows if it plot the chart with prio or not
